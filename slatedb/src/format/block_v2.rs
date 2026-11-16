@@ -229,12 +229,13 @@ impl BlockBuilderV2 {
     }
 
     /// Build the final block.
-    pub(crate) fn build(self) -> Result<Block, SlateDBError> {
+    pub(crate) fn build(mut self) -> Result<Block, SlateDBError> {
         if self.is_empty() {
             return Err(SlateDBError::EmptyBlock);
         }
+        self.data.shrink_to_fit();
         Ok(Block {
-            data: Bytes::from(self.data),
+            data: std::sync::Arc::new(Bytes::from(self.data)),
             offsets: self.restarts,
         })
     }

@@ -405,6 +405,7 @@ pub(crate) fn decode_codec_entries(
         last_key = full_key.clone();
 
         let row_entry = RowEntry {
+            value_owner: None,
             key: full_key,
             value: sst_row_entry.value,
             seq: sst_row_entry.seq,

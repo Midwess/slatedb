@@ -102,6 +102,7 @@ impl<T: RowEntryIterator> RetentionIterator<T> {
                         m.expired_entries_purged_value.increment(1);
                     }
                     RowEntry {
+                        value_owner: None,
                         key: entry.key,
                         value: Tombstone,
                         seq: entry.seq,

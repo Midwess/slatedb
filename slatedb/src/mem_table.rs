@@ -567,7 +567,10 @@ impl KVTable {
         iterator
     }
 
-    pub(crate) fn put(&self, row: RowEntry) {
+    pub(crate) fn put(&self, mut row: RowEntry) {
+        if let Some(value) = row.value.as_bytes() {
+            row.value_owner = Some(Arc::new(value));
+        }
         let internal_key = SequencedKey::new(row.key.clone(), row.seq);
         let previous_size = Cell::new(None);
 

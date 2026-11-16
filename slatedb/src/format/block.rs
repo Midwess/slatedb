@@ -4,12 +4,13 @@ use crate::format::sst::{CHECKSUM_SIZE, OFFSET_SIZE};
 use crate::types::RowEntry;
 use crate::utils::clamp_allocated_size_bytes;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use std::sync::Arc;
 
 pub(crate) const SIZEOF_U16: usize = size_of::<u16>();
 
 #[derive(Eq, PartialEq)]
 pub(crate) struct Block {
-    pub(crate) data: Bytes,
+    pub(crate) data: Arc<Bytes>,
     pub(crate) offsets: Vec<u16>,
 }
 
@@ -40,14 +41,15 @@ impl Block {
             .collect();
         let bytes = bytes.slice(0..data_end);
         Self {
-            data: bytes,
+            data: Arc::new(clamp_allocated_size_bytes(&bytes)),
             offsets,
         }
     }
 
+    // Decode clamps the payload once. Cache entries share that allocation with readers.
     pub(crate) fn clamp_allocated_size(&self) -> Self {
         Self {
-            data: clamp_allocated_size_bytes(&self.data),
+            data: Arc::clone(&self.data),
             offsets: self.offsets.clone(),
         }
     }
@@ -216,12 +218,13 @@ impl BlockBuilderV1 {
         self.offsets.is_empty()
     }
 
-    pub(crate) fn build(self) -> Result<Block, SlateDBError> {
+    pub(crate) fn build(mut self) -> Result<Block, SlateDBError> {
         if self.is_empty() {
             return Err(SlateDBError::EmptyBlock);
         }
+        self.data.shrink_to_fit();
         Ok(Block {
-            data: Bytes::from(self.data),
+            data: Arc::new(Bytes::from(self.data)),
             offsets: self.offsets,
         })
     }
@@ -342,7 +345,7 @@ mod tests {
         let block_data = &block.data;
         let block_offsets = &block.offsets;
         // Decode the block data using offsets and validate each decoded entry
-        let decoded_entries = decode_codec_entries(block_data.clone(), block_offsets)
+        let decoded_entries = decode_codec_entries(block_data.as_ref().clone(), block_offsets)
             .expect("Failed to decode codec entries");
         assert_eq!(decoded_entries, test_case.entries);
 

@@ -238,7 +238,7 @@ mod tests {
     fn block(weight: usize) -> CachedEntry {
         assert!(weight >= 2);
         CachedEntry::with_block(&Block {
-            data: Bytes::from(vec![42; weight - 2]),
+            data: Arc::new(Bytes::from(vec![42; weight - 2])),
             offsets: vec![],
         })
     }

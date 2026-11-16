@@ -233,6 +233,19 @@ impl Reader {
         write_batch_iter: Option<WriteBatchIterator>,
         max_seq: Option<u64>,
     ) -> Result<Option<KeyValue>, SlateDBError> {
+        self.get_row_with_options(key, options, db_state, write_batch_iter, max_seq)
+            .await
+            .map(|entry| entry.map(KeyValue::from))
+    }
+
+    pub(crate) async fn get_row_with_options<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        options: &ReadOptions,
+        db_state: &(dyn DbStateReader + Sync + Send),
+        write_batch_iter: Option<WriteBatchIterator>,
+        max_seq: Option<u64>,
+    ) -> Result<Option<crate::RowEntry>, SlateDBError> {
         let read_trace = Self::read_trace(options.tracing_options.as_ref());
         let read = self.get_key_value_with_options_inner(
             key,
@@ -253,7 +266,7 @@ impl Reader {
         write_batch_iter: Option<WriteBatchIterator>,
         max_seq: Option<u64>,
         read_trace: ReadTrace,
-    ) -> Result<Option<KeyValue>, SlateDBError> {
+    ) -> Result<Option<crate::RowEntry>, SlateDBError> {
         self.db_stats.get_requests.increment(1);
         let max_seq = self.prepare_max_seq(max_seq, options.durability_filter, options.dirty);
         let key_slice = key.as_ref();
@@ -302,7 +315,7 @@ impl Reader {
                 if entry.value.is_tombstone() {
                     Err(SlateDBError::UnexpectedTombstone)
                 } else {
-                    Ok(KeyValue::from(entry))
+                    Ok(entry)
                 }
             })
             .transpose()

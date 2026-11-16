@@ -162,6 +162,7 @@ mod reader;
 mod retention_iterator;
 mod retrying_object_store;
 mod segment_iterator;
+mod shared_value;
 mod snapshot_manager;
 mod sorted_run_iterator;
 mod sst_builder;
@@ -175,6 +176,7 @@ mod tablestore;
 #[cfg(test)]
 mod test_utils;
 mod transaction_manager;
+pub use shared_value::{SharedValue, WeakValue};
 mod types;
 mod utils;
 

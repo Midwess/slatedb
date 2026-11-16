@@ -1138,6 +1138,33 @@ impl DbReader {
             .map_err(Into::into)
     }
 
+    /// Get a shared value with default read options.
+    pub async fn get_shared<K: AsRef<[u8]> + Send>(
+        &self,
+        key: K,
+    ) -> Result<Option<crate::SharedValue>, crate::Error> {
+        self.get_shared_with_options(key, &ReadOptions::default())
+            .await
+    }
+
+    /// Get a shared value with custom read options.
+    /// Observers track allocation lifetime. They do not check freshness or expiration.
+    pub async fn get_shared_with_options<K: AsRef<[u8]> + Send>(
+        &self,
+        key: K,
+        options: &ReadOptions,
+    ) -> Result<Option<crate::SharedValue>, crate::Error> {
+        self.inner.check_closed().map_err(crate::Error::from)?;
+        let state = Arc::clone(&self.inner.state.read());
+        let row = self
+            .inner
+            .reader
+            .get_row_with_options(key, options, state.as_ref(), None, None)
+            .await
+            .map_err(crate::Error::from)?;
+        Ok(row.and_then(|row| row.into_shared_value()))
+    }
+
     /// Get a key-value pair from the reader with default read options.
     pub async fn get_key_value<K: AsRef<[u8]> + Send>(
         &self,

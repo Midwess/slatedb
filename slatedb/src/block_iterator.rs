@@ -11,12 +11,15 @@ use bytes::{Buf, Bytes, BytesMut};
 use IterationOrder::Descending;
 
 pub(crate) trait BlockLike: Send + Sync {
-    fn data(&self) -> &Bytes;
+    fn data_owner(&self) -> &Arc<Bytes>;
+    fn data(&self) -> &Bytes {
+        self.data_owner().as_ref()
+    }
     fn offsets(&self) -> &[u16];
 }
 
 impl BlockLike for Block {
-    fn data(&self) -> &Bytes {
+    fn data_owner(&self) -> &Arc<Bytes> {
         &self.data
     }
 
@@ -26,7 +29,7 @@ impl BlockLike for Block {
 }
 
 impl BlockLike for &Block {
-    fn data(&self) -> &Bytes {
+    fn data_owner(&self) -> &Arc<Bytes> {
         &self.data
     }
 
@@ -36,7 +39,7 @@ impl BlockLike for &Block {
 }
 
 impl BlockLike for Arc<Block> {
-    fn data(&self) -> &Bytes {
+    fn data_owner(&self) -> &Arc<Bytes> {
         &self.data
     }
 
@@ -230,13 +233,16 @@ impl<B: BlockLike> BlockIterator<B> {
         let mut cursor = self.block.data().slice(off_usz..);
         let codec = SstRowCodecV0::new();
         let sst_row = codec.decode(&mut cursor)?;
-        Ok(Some(RowEntry::new(
-            sst_row.restore_full_key(&self.first_key),
-            sst_row.value,
-            sst_row.seq,
-            sst_row.create_ts,
-            sst_row.expire_ts,
-        )))
+        Ok(Some(
+            RowEntry::new(
+                sst_row.restore_full_key(&self.first_key),
+                sst_row.value,
+                sst_row.seq,
+                sst_row.create_ts,
+                sst_row.expire_ts,
+            )
+            .with_value_owner(Arc::clone(self.block.data_owner())),
+        ))
     }
 
     fn decode_first_key(block: &B) -> Bytes {

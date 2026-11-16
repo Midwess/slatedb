@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use std::sync::Arc;
 
 /// Represents a key-value pair known not to be a tombstone.
 #[non_exhaustive]
@@ -14,8 +15,9 @@ pub struct KeyValue {
 /// Represents a key-value pair that may be a tombstone.
 ///
 /// This is the entry type passed to compaction for each key value pair.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub struct RowEntry {
+    pub(crate) value_owner: Option<Arc<Bytes>>,
     /// The key bytes.
     pub key: Bytes,
     /// The value, which may be a regular value, merge operand, or tombstone.
@@ -29,7 +31,8 @@ pub struct RowEntry {
 }
 
 impl RowEntry {
-    pub(crate) fn new(
+    /// Create an entry without an allocation observer.
+    pub fn new(
         key: Bytes,
         value: ValueDeletable,
         seq: u64,
@@ -37,12 +40,25 @@ impl RowEntry {
         expire_ts: Option<i64>,
     ) -> Self {
         Self {
+            value_owner: None,
             key,
             value,
             seq,
             create_ts,
             expire_ts,
         }
+    }
+
+    pub(crate) fn with_value_owner(mut self, owner: Arc<Bytes>) -> Self {
+        self.value_owner = Some(owner);
+        self
+    }
+
+    pub(crate) fn into_shared_value(self) -> Option<crate::SharedValue> {
+        let value = self.value.as_bytes()?;
+        self.value_owner
+            .and_then(|owner| crate::SharedValue::from_owner(owner, &value))
+            .or_else(|| Some(crate::SharedValue::new(value)))
     }
 
     pub(crate) fn estimated_size(&self) -> usize {
@@ -85,6 +101,7 @@ impl RowEntry {
     #[cfg(test)]
     pub(crate) fn new_value(key: &[u8], value: &[u8], seq: u64) -> Self {
         Self {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Value(Bytes::copy_from_slice(value)),
             seq,
@@ -96,6 +113,7 @@ impl RowEntry {
     #[cfg(test)]
     pub(crate) fn new_merge(key: &[u8], value: &[u8], seq: u64) -> Self {
         Self {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Merge(Bytes::copy_from_slice(value)),
             seq,
@@ -107,6 +125,7 @@ impl RowEntry {
     #[cfg(test)]
     pub(crate) fn new_tombstone(key: &[u8], seq: u64) -> Self {
         Self {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Tombstone,
             seq,
@@ -118,6 +137,7 @@ impl RowEntry {
     #[cfg(test)]
     pub(crate) fn with_create_ts(&self, create_ts: i64) -> Self {
         Self {
+            value_owner: self.value_owner.clone(),
             key: self.key.clone(),
             value: self.value.clone(),
             seq: self.seq,
@@ -129,12 +149,35 @@ impl RowEntry {
     #[cfg(test)]
     pub(crate) fn with_expire_ts(&self, expire_ts: i64) -> Self {
         Self {
+            value_owner: self.value_owner.clone(),
             key: self.key.clone(),
             value: self.value.clone(),
             seq: self.seq,
             create_ts: self.create_ts,
             expire_ts: Some(expire_ts),
         }
+    }
+}
+
+impl std::fmt::Debug for RowEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RowEntry")
+            .field("key", &self.key)
+            .field("value", &self.value)
+            .field("seq", &self.seq)
+            .field("create_ts", &self.create_ts)
+            .field("expire_ts", &self.expire_ts)
+            .finish()
+    }
+}
+
+impl PartialEq for RowEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+            && self.value == other.value
+            && self.seq == other.seq
+            && self.create_ts == other.create_ts
+            && self.expire_ts == other.expire_ts
     }
 }
 

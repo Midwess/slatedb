@@ -30,6 +30,7 @@ impl<T: RowEntryIterator> CompactionFilterIterator<T> {
                     entry.expire_ts
                 };
                 Ok(Some(RowEntry {
+                    value_owner: None,
                     key: entry.key,
                     value: new_value,
                     seq: entry.seq,
@@ -201,6 +202,7 @@ mod tests {
 
     fn make_entry(key: &[u8], value: &[u8], seq: u64) -> RowEntry {
         RowEntry {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Value(Bytes::copy_from_slice(value)),
             seq,
@@ -211,6 +213,7 @@ mod tests {
 
     fn make_tombstone(key: &[u8], seq: u64) -> RowEntry {
         RowEntry {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Tombstone,
             seq,
@@ -221,6 +224,7 @@ mod tests {
 
     fn make_merge(key: &[u8], value: &[u8], seq: u64) -> RowEntry {
         RowEntry {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Merge(Bytes::copy_from_slice(value)),
             seq,
@@ -231,6 +235,7 @@ mod tests {
 
     fn make_entry_with_expire_ts(key: &[u8], value: &[u8], seq: u64, expire_ts: i64) -> RowEntry {
         RowEntry {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Value(Bytes::copy_from_slice(value)),
             seq,

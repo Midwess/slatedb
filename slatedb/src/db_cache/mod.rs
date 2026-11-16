@@ -427,7 +427,7 @@ pub struct CachedEntry {
 }
 
 impl CachedEntry {
-    /// Create a new `CachedEntry` with a clamped copy of the given block.
+    /// Create a new `CachedEntry` that shares the clamped block payload.
     pub(crate) fn with_block(block: &Block) -> Self {
         Self {
             item: CachedItem::Block(Arc::new(block.clamp_allocated_size())),
@@ -2026,7 +2026,7 @@ mod tests {
     }
 
     #[test]
-    fn test_with_block_should_clamp_block() {
+    fn test_with_block_should_share_payload() {
         // given:
         let mut builder = BlockBuilder::new_latest(4096);
         assert!(builder
@@ -2040,7 +2040,7 @@ mod tests {
         // then:
         let cached = entry.block().unwrap();
         assert_eq!(block.data, cached.data);
-        assert_ne!(block.data.as_ptr(), cached.data.as_ptr());
+        assert_eq!(block.data.as_ptr(), cached.data.as_ptr());
     }
 
     #[rstest]

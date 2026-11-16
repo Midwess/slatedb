@@ -446,6 +446,7 @@ impl<T: RowEntryIterator> MergeOperatorIterator<T> {
         };
 
         Ok(Some(RowEntry {
+            value_owner: None,
             key: key.clone(),
             value: if found_base {
                 ValueDeletable::Value(final_result)

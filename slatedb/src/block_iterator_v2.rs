@@ -107,7 +107,8 @@ impl<B: BlockLike> AscendingState<B> {
                 entry.seq,
                 entry.create_ts,
                 entry.expire_ts,
-            ),
+            )
+            .with_value_owner(std::sync::Arc::clone(self.block.data_owner())),
             new_offset,
         ))
     }

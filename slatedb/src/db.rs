@@ -872,6 +872,34 @@ impl Db {
             .map_err(Into::into)
     }
 
+    /// Get a shared value with default read options.
+    pub async fn get_shared<K: AsRef<[u8]> + Send>(
+        &self,
+        key: K,
+    ) -> Result<Option<crate::SharedValue>, crate::Error> {
+        self.get_shared_with_options(key, &ReadOptions::default())
+            .await
+    }
+
+    /// Get a shared value with custom read options.
+    /// The returned handle shares memtable or cached block bytes. Observers track allocation
+    /// lifetime only. Callers must invalidate observers when keys change.
+    pub async fn get_shared_with_options<K: AsRef<[u8]> + Send>(
+        &self,
+        key: K,
+        options: &ReadOptions,
+    ) -> Result<Option<crate::SharedValue>, crate::Error> {
+        self.inner.check_closed().map_err(crate::Error::from)?;
+        let state = self.inner.state.read().view();
+        let row = self
+            .inner
+            .reader
+            .get_row_with_options(key, options, &state, None, None)
+            .await
+            .map_err(crate::Error::from)?;
+        Ok(row.and_then(|row| row.into_shared_value()))
+    }
+
     /// Get a key-value pair from the database with default read options.
     ///
     /// Returns the key along with its value and metadata (sequence number,

@@ -519,6 +519,7 @@ mod tests {
 
     fn entry(key: &[u8], val: &[u8], seq: u64) -> RowEntry {
         RowEntry {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Value(Bytes::copy_from_slice(val)),
             seq,
@@ -529,6 +530,7 @@ mod tests {
 
     fn tombstone(key: &[u8], seq: u64) -> RowEntry {
         RowEntry {
+            value_owner: None,
             key: Bytes::copy_from_slice(key),
             value: ValueDeletable::Tombstone,
             seq,

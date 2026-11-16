@@ -107,6 +107,33 @@ async fn main() -> Result<(), Error> {
 
 SlateDB uses the [`object_store`](https://docs.rs/object_store/latest/object_store/) crate to interact with object storage, and therefore supports any object storage that implements the `ObjectStore` trait. You can use the crate in your project to interact with any object storage that implements the `ObjectStore` trait. SlateDB also re-exports the [`object_store`](https://docs.rs/object_store/latest/object_store/) crate for your convenience.
 
+## Shared value observers
+
+This fork provides `Db::get_shared`, `Db::get_shared_with_options`, and the same methods on
+`DbReader`. A `SharedValue` retains the immutable bytes of a memtable value or an SST block.
+`as_ref()` borrows the value range. These methods do not copy the value payload.
+
+Use `SharedValue::downgrade()` to store a `WeakValue` in an application index. Call `upgrade()`
+before each read. An upgrade returns `None` after all strong owners release the allocation.
+A successful upgrade keeps the bytes valid while the reader uses them. The observer does not
+keep an evicted block payload alive. Weak observers retain the small Arc control allocation.
+
+Observers identify one value version. They do not check writes, deletes, TTL, database closure,
+or reader checkpoint changes. Applications must invalidate their index when those conditions
+change. Active strong handles remain valid after eviction or database closure.
+
+SST cache entries and row iterators share one byte owner after block decoding. Decode clamps
+block data once to avoid retaining larger read buffers. Disk-cache loads create a new owner.
+A weak observer for the previous owner then misses. Merge results have no persistent owner;
+their observers can expire when the caller releases the result.
+
+The shared owner adds an Arc allocation per decoded block or memtable value. Existing memory
+estimates are not allocator measurements. `allocation_len()` reports retained payload length,
+not process memory. Several value handles can share that length; count each owner only once.
+
+`RowEntry` now has private ownership metadata. Use `RowEntry::new` instead of a struct literal.
+The serialized SST format does not change.
+
 ## Documentation
 
 Visit [slatedb.io](https://slatedb.io) to learn more.
